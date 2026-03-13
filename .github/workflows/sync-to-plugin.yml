@@ -78,17 +78,16 @@ jobs:
             fi
           done
 
-      - name: Bump patch version in plugin.json
+      - name: Bump version, update README badge, build release notes
         if: steps.changes.outputs.has_changes == 'true'
         id: version
         run: |
           cd plugin-repo
 
-          # Read current version
+          # --- Version bump ---
           CURRENT=$(grep -oP '"version"\s*:\s*"\K[^"]+' plugin.json)
           echo "Current version: $CURRENT"
 
-          # Bump patch: 1.0.0 → 1.0.1
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
           PATCH=$((PATCH + 1))
           NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
@@ -96,20 +95,23 @@ jobs:
 
           # Update plugin.json
           sed -i "s/\"version\": \"${CURRENT}\"/\"version\": \"${NEW_VERSION}\"/" plugin.json
+
+          # --- Update README badge ---
+          if [ -f README.md ]; then
+            sed -i "s|version-[0-9]*\.[0-9]*\.[0-9]*-blue|version-${NEW_VERSION}-blue|g" README.md
+            echo "✅ README badge updated to ${NEW_VERSION}"
+          fi
+
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Build list of synced languages
-        if: steps.changes.outputs.has_changes == 'true'
-        id: langs
-        run: |
-          # Detect which languages are new or updated
+          # --- Detect new/updated languages ---
           NEW_LANGS=""
           UPDATED_LANGS=""
-          for lang_dir in translations-repo/translations/*/; do
+          for lang_dir in ../translations-repo/translations/*/; do
             lang_code=$(basename "$lang_dir")
             [ "$lang_code" = "en" ] && continue
-            src="translations-repo/translations/${lang_code}/server-sync.php"
-            dest="plugin-repo/lang/${lang_code}/server-sync.php"
+            src="../translations-repo/translations/${lang_code}/server-sync.php"
+            dest="lang/${lang_code}/server-sync.php"
 
             if [ ! -f "$dest" ]; then
               NEW_LANGS="${NEW_LANGS} ${lang_code}"
@@ -118,31 +120,36 @@ jobs:
             fi
           done
 
-          # Build release notes
-          NOTES=""
-          if [ -n "$NEW_LANGS" ]; then
-            NOTES="### 🆕 New Languages\n"
-            for lang in $NEW_LANGS; do
-              NOTES="${NOTES}- \`${lang}\`\n"
-            done
-            NOTES="${NOTES}\n"
-          fi
-          if [ -n "$UPDATED_LANGS" ]; then
-            NOTES="${NOTES}### 📝 Updated Languages\n"
-            for lang in $UPDATED_LANGS; do
-              NOTES="${NOTES}- \`${lang}\`\n"
-            done
-            NOTES="${NOTES}\n"
-          fi
+          ALL_LANGS=$(echo $NEW_LANGS $UPDATED_LANGS | xargs)
+          echo "all_langs=$ALL_LANGS" >> $GITHUB_OUTPUT
 
-          # Count total languages (excluding en)
-          TOTAL=$(ls -d translations-repo/translations/*/ | xargs -I{} basename {} | grep -v '^en$' | wc -l)
-          NOTES="${NOTES}### 📊 Total\n- **${TOTAL}** community translations available"
+          # --- Build release notes to file ---
+          NOTES_FILE=$(mktemp)
+          {
+            if [ -n "$NEW_LANGS" ]; then
+              echo "### 🆕 New Languages"
+              for lang in $NEW_LANGS; do
+                echo "- \`${lang}\`"
+              done
+              echo ""
+            fi
+            if [ -n "$UPDATED_LANGS" ]; then
+              echo "### 📝 Updated Languages"
+              for lang in $UPDATED_LANGS; do
+                echo "- \`${lang}\`"
+              done
+              echo ""
+            fi
 
-          echo "notes<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$NOTES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "all_langs=$(echo $NEW_LANGS $UPDATED_LANGS | xargs)" >> $GITHUB_OUTPUT
+            TOTAL=$(ls -d ../translations-repo/translations/*/ | xargs -I{} basename {} | grep -v '^en$' | wc -l)
+            echo "### 📊 Total"
+            echo "- **${TOTAL}** community translations available"
+            echo ""
+            echo "### 📦 Installation"
+            echo "Download \`server-sync.zip\` below and extract it into your Pelican Panel \`plugins/\` directory."
+          } > "$NOTES_FILE"
+
+          echo "notes_file=$NOTES_FILE" >> $GITHUB_OUTPUT
 
       - name: Commit & push to plugin repo
         if: steps.changes.outputs.has_changes == 'true'
@@ -151,8 +158,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Stage lang/ and plugin.json changes
-          git add lang/ plugin.json
+          # Stage lang/, plugin.json and README changes
+          git add lang/ plugin.json README.md
 
           # Now check if there are staged changes
           if git diff --cached --quiet; then
@@ -161,16 +168,26 @@ jobs:
           fi
 
           git commit -m "lang: sync translations — v${{ steps.version.outputs.new_version }}" \
-                      -m "Languages: ${{ steps.langs.outputs.all_langs }}"
+                      -m "Languages: ${{ steps.version.outputs.all_langs }}"
           git push
 
-      - name: Create GitHub Release
+      - name: Build release ZIP
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          cd plugin-repo
+
+          # Create a clean ZIP of the entire plugin (exclude .git)
+          zip -r ../server-sync.zip . -x ".git/*"
+          echo "✅ Created server-sync.zip ($(du -h ../server-sync.zip | cut -f1))"
+
+      - name: Create GitHub Release with download
         if: steps.changes.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ secrets.SYNC_REPO_PAT }}
         run: |
           cd plugin-repo
           gh release create "v${{ steps.version.outputs.new_version }}" \
+            ../server-sync.zip \
             --title "v${{ steps.version.outputs.new_version }} — Translation Update" \
-            --notes "${{ steps.langs.outputs.notes }}" \
+            --notes-file "${{ steps.version.outputs.notes_file }}" \
             --latest
