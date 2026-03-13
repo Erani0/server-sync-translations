@@ -72,15 +72,21 @@ function flattenArray(array $array, string $prefix = ''): array
 }
 
 /**
- * Get the GitHub username of the person who last modified a file via git log.
- * Falls back to the commit author name if no GitHub username is found.
+ * Get the GitHub username of the person who contributed a translation file.
+ *
+ * Strategy (in order):
+ * 1. Extract from noreply GitHub email in git log
+ * 2. Use GitHub API /repos/.../commits to get the author login (most reliable)
+ * 3. Use GitHub search API to resolve email → username
+ * 4. Fallback to git author name
  */
 function getContributor(string $filePath): ?string
 {
-    // Try to get the GitHub username from the merge commit
-    // Format: extract from "Co-authored-by" or the committer
+    $repoSlug = 'Erani0/server-sync-translations';
+
+    // --- Step 1: Get git log info (author who first added the file) ---
     $cmd = sprintf(
-        'git log --follow --diff-filter=A --format="%%an|%%ae" -- %s 2>/dev/null | head -1',
+        'git log --follow --diff-filter=A --format="%%an|%%ae|%%H" -- %s 2>/dev/null | head -1',
         escapeshellarg($filePath)
     );
     $output = trim(shell_exec($cmd) ?? '');
@@ -88,7 +94,7 @@ function getContributor(string $filePath): ?string
     if (empty($output)) {
         // Fallback: get last modifier
         $cmd = sprintf(
-            'git log -1 --format="%%an|%%ae" -- %s 2>/dev/null',
+            'git log -1 --format="%%an|%%ae|%%H" -- %s 2>/dev/null',
             escapeshellarg($filePath)
         );
         $output = trim(shell_exec($cmd) ?? '');
@@ -98,30 +104,65 @@ function getContributor(string $filePath): ?string
         return null;
     }
 
-    [$name, $email] = explode('|', $output, 2);
+    $parts = explode('|', $output, 3);
+    $name  = $parts[0] ?? '';
+    $email = $parts[1] ?? '';
+    $sha   = $parts[2] ?? '';
 
-    // Try to extract GitHub username from noreply email (e.g. user@users.noreply.github.com)
+    // --- Step 2: Check noreply email ---
     if (preg_match('/^(\d+\+)?([^@]+)@users\.noreply\.github\.com$/', $email, $m)) {
         return $m[2];
     }
 
-    // Try GitHub API to resolve email → username
-    $apiUrl = sprintf('https://api.github.com/search/users?q=%s+in:email', urlencode($email));
-    $context = stream_context_create(['http' => [
-        'header' => "User-Agent: server-sync-translations-bot\r\n",
-        'timeout' => 5,
-    ]]);
-    $response = @file_get_contents($apiUrl, false, $context);
+    // --- Step 3: Use GitHub Commits API (most reliable on GitHub Actions) ---
+    if (!empty($sha)) {
+        $apiUrl = sprintf('https://api.github.com/repos/%s/commits/%s', $repoSlug, $sha);
+        $headers = "User-Agent: server-sync-translations-bot\r\n";
 
-    if ($response !== false) {
-        $data = json_decode($response, true);
-        if (!empty($data['items'][0]['login'])) {
-            return $data['items'][0]['login'];
+        // Use GITHUB_TOKEN if available (GitHub Actions provides this automatically)
+        $token = getenv('GITHUB_TOKEN');
+        if ($token) {
+            $headers .= "Authorization: Bearer {$token}\r\n";
+        }
+
+        $context = stream_context_create(['http' => [
+            'header'  => $headers,
+            'timeout' => 5,
+        ]]);
+        $response = @file_get_contents($apiUrl, false, $context);
+
+        if ($response !== false) {
+            $data = json_decode($response, true);
+            // Check author login (the actual GitHub user who made the commit)
+            if (!empty($data['author']['login'])) {
+                return $data['author']['login'];
+            }
+            // Fallback: check committer (for merge commits)
+            if (!empty($data['committer']['login']) && $data['committer']['login'] !== 'web-flow') {
+                return $data['committer']['login'];
+            }
         }
     }
 
-    // Fallback: just use the author name (not linkable)
-    return $name;
+    // --- Step 4: GitHub search API (email → username) ---
+    if (!empty($email)) {
+        $apiUrl = sprintf('https://api.github.com/search/users?q=%s+in:email', urlencode($email));
+        $context = stream_context_create(['http' => [
+            'header'  => "User-Agent: server-sync-translations-bot\r\n",
+            'timeout' => 5,
+        ]]);
+        $response = @file_get_contents($apiUrl, false, $context);
+
+        if ($response !== false) {
+            $data = json_decode($response, true);
+            if (!empty($data['items'][0]['login'])) {
+                return $data['items'][0]['login'];
+            }
+        }
+    }
+
+    // --- Step 5: Fallback to author name ---
+    return $name ?: null;
 }
 
 // ── Main logic ───────────────────────────────────────────────────────────────

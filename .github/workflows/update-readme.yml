@@ -27,6 +27,8 @@ jobs:
           php-version: '8.2'
 
       - name: Update README table
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: php .github/scripts/update-readme.php
 
       - name: Check for changes
