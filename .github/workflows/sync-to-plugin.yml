@@ -85,8 +85,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Check if there are actual changes
-          if git diff --quiet && git diff --cached --quiet; then
+          # Stage all lang/ changes first (including new untracked files!)
+          git add lang/
+
+          # Now check if there are staged changes
+          if git diff --cached --quiet; then
             echo "ℹ️ No changes to commit — plugin repo already up to date."
             exit 0
           fi
@@ -100,6 +103,5 @@ jobs:
             fi
           done
 
-          git add lang/
           git commit -m "lang: sync translations from community repo" -m "Synced languages:${LANGS}"
           git push
