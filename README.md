@@ -16,7 +16,7 @@ Community translations for the **Server Sync** plugin for [Pelican Panel](https:
 | 🇬🇷 Greek | `el` | ❌ Missing | — |
 | 🇪🇸 Spanish | `es` | ❌ Missing | — |
 | 🇫🇮 Finnish | `fi` | ❌ Missing | — |
-| 🇫🇷 French | `fr` | ❌ Missing | — |
+| 🇫🇷 French | `fr` | ✅ Complete | [@Jesse Lukas](https://github.com/Jesse Lukas) |
 | 🇭🇺 Hungarian | `hu` | ❌ Missing | — |
 | 🇮🇩 Indonesian | `id` | ❌ Missing | — |
 | 🇮🇹 Italian | `it` | ❌ Missing | — |
