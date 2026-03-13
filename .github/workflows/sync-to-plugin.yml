@@ -190,8 +190,8 @@ jobs:
         run: |
           cd plugin-repo
 
-          # Strip any BOM/hidden chars from token
-          CLEAN_TOKEN=$(echo "$GH_TOKEN" | tr -d '\xEF\xBB\xBF\xFE\xFF' | tr -d '[:space:]')
+          # Strip any BOM/hidden chars from token (only keep valid PAT characters)
+          CLEAN_TOKEN=$(printf '%s' "$GH_TOKEN" | sed 's/[^a-zA-Z0-9_]//g')
 
           # Create release via GitHub API (curl is BOM-immune)
           RELEASE_BODY=$(cat "${GITHUB_WORKSPACE}/release-notes.md")
