@@ -23,7 +23,7 @@ Community translations for the **Server Sync** plugin for [Pelican Panel](https:
 | 🇯🇵 Japanese | `ja` | ✅ Complete | [@Erani0](https://github.com/Erani0) |
 | 🇰🇷 Korean | `ko` | ✅ Complete | [@Erani0](https://github.com/Erani0) |
 | 🇱🇹 Lithuanian | `lt` | ❌ Missing | — |
-| 🇳🇱 Dutch | `nl` | ❌ Missing | — |
+| 🇳🇱 Dutch | `nl` | ✅ Complete | [@Erani0](https://github.com/Erani0) |
 | 🇳🇴 Norwegian | `no` | ❌ Missing | — |
 | 🇵🇱 Polish | `pl` | ❌ Missing | — |
 | 🇵🇹 Portuguese | `pt` | ❌ Missing | — |
