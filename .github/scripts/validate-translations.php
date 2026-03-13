@@ -109,12 +109,25 @@ foreach ($languages as $langDir) {
     }
 
     // Check for English fallback values (untranslated strings identical to English)
-    // Whitelist: keys that are legitimately the same in most languages (technical terms, symbols, etc.)
+    // Whitelist: keys that are legitimately the same in many languages (technical terms, symbols, short words)
     $fallbackWhitelist = [
-        'direction.main_to_sub',     // "Main → Sub" uses arrows
-        'direction.sub_to_main',     // "Sub → Main" uses arrows
+        'navigation',                 // "Server Sync" is the plugin brand name
+        'direction.main_to_sub',      // "Main → Sub" uses arrows
+        'direction.sub_to_main',      // "Sub → Main" uses arrows
         'form.sync_paths_placeholder',
         'form.exclude_paths_placeholder',
+        'table.error',                // "Error" is identical in Spanish, Portuguese, etc.
+        'table.status',               // "Status" is identical in German, Dutch, etc.
+        'table.direction',            // "Direction" is identical in French
+        'table.actions',              // "Actions" is identical in French
+        'table.interval',             // "Interval" is identical in many languages
+        'log.source',                 // "Source" is identical in French
+        'log.target',                 // "Target" is similar in many languages
+        'log.summary',                // "Summary" can be identical in some languages
+        'server_limit.title',         // "Server Sync Limit" contains brand name
+        'sync_mode.live',             // "Live" is used internationally
+        'schedule.task_name',         // "Server Sync" is the plugin brand name
+        'schedule.preset',            // "Interval" — technical term
     ];
     $englishFallbacks = [];
     foreach ($referenceKeys as $key => $refValue) {
