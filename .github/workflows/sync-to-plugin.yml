@@ -78,6 +78,72 @@ jobs:
             fi
           done
 
+      - name: Bump patch version in plugin.json
+        if: steps.changes.outputs.has_changes == 'true'
+        id: version
+        run: |
+          cd plugin-repo
+
+          # Read current version
+          CURRENT=$(grep -oP '"version"\s*:\s*"\K[^"]+' plugin.json)
+          echo "Current version: $CURRENT"
+
+          # Bump patch: 1.0.0 → 1.0.1
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          PATCH=$((PATCH + 1))
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "New version: $NEW_VERSION"
+
+          # Update plugin.json
+          sed -i "s/\"version\": \"${CURRENT}\"/\"version\": \"${NEW_VERSION}\"/" plugin.json
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build list of synced languages
+        if: steps.changes.outputs.has_changes == 'true'
+        id: langs
+        run: |
+          # Detect which languages are new or updated
+          NEW_LANGS=""
+          UPDATED_LANGS=""
+          for lang_dir in translations-repo/translations/*/; do
+            lang_code=$(basename "$lang_dir")
+            [ "$lang_code" = "en" ] && continue
+            src="translations-repo/translations/${lang_code}/server-sync.php"
+            dest="plugin-repo/lang/${lang_code}/server-sync.php"
+
+            if [ ! -f "$dest" ]; then
+              NEW_LANGS="${NEW_LANGS} ${lang_code}"
+            elif ! diff -q "$src" "$dest" > /dev/null 2>&1; then
+              UPDATED_LANGS="${UPDATED_LANGS} ${lang_code}"
+            fi
+          done
+
+          # Build release notes
+          NOTES=""
+          if [ -n "$NEW_LANGS" ]; then
+            NOTES="### 🆕 New Languages\n"
+            for lang in $NEW_LANGS; do
+              NOTES="${NOTES}- \`${lang}\`\n"
+            done
+            NOTES="${NOTES}\n"
+          fi
+          if [ -n "$UPDATED_LANGS" ]; then
+            NOTES="${NOTES}### 📝 Updated Languages\n"
+            for lang in $UPDATED_LANGS; do
+              NOTES="${NOTES}- \`${lang}\`\n"
+            done
+            NOTES="${NOTES}\n"
+          fi
+
+          # Count total languages (excluding en)
+          TOTAL=$(ls -d translations-repo/translations/*/ | xargs -I{} basename {} | grep -v '^en$' | wc -l)
+          NOTES="${NOTES}### 📊 Total\n- **${TOTAL}** community translations available"
+
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "all_langs=$(echo $NEW_LANGS $UPDATED_LANGS | xargs)" >> $GITHUB_OUTPUT
+
       - name: Commit & push to plugin repo
         if: steps.changes.outputs.has_changes == 'true'
         run: |
@@ -85,8 +151,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Stage all lang/ changes first (including new untracked files!)
-          git add lang/
+          # Stage lang/ and plugin.json changes
+          git add lang/ plugin.json
 
           # Now check if there are staged changes
           if git diff --cached --quiet; then
@@ -94,14 +160,17 @@ jobs:
             exit 0
           fi
 
-          # Build commit message with list of synced languages
-          LANGS=""
-          for lang_dir in ../translations-repo/translations/*/; do
-            lang_code=$(basename "$lang_dir")
-            if [ "$lang_code" != "en" ]; then
-              LANGS="${LANGS} ${lang_code}"
-            fi
-          done
-
-          git commit -m "lang: sync translations from community repo" -m "Synced languages:${LANGS}"
+          git commit -m "lang: sync translations — v${{ steps.version.outputs.new_version }}" \
+                      -m "Languages: ${{ steps.langs.outputs.all_langs }}"
           git push
+
+      - name: Create GitHub Release
+        if: steps.changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_REPO_PAT }}
+        run: |
+          cd plugin-repo
+          gh release create "v${{ steps.version.outputs.new_version }}" \
+            --title "v${{ steps.version.outputs.new_version }} — Translation Update" \
+            --notes "${{ steps.langs.outputs.notes }}" \
+            --latest
