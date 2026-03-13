@@ -185,12 +185,43 @@ jobs:
 
       - name: Create GitHub Release with download
         if: steps.changes.outputs.has_changes == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          repository: Erani0/server-sync
-          token: ${{ secrets.SYNC_REPO_PAT }}
-          tag_name: v${{ steps.version.outputs.new_version }}
-          name: v${{ steps.version.outputs.new_version }} — Translation Update
-          body_path: release-notes.md
-          files: server-sync.zip
-          make_latest: true
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_REPO_PAT }}
+        run: |
+          cd plugin-repo
+
+          # Strip any BOM/hidden chars from token
+          CLEAN_TOKEN=$(echo "$GH_TOKEN" | tr -d '\xEF\xBB\xBF\xFE\xFF' | tr -d '[:space:]')
+
+          # Create release via GitHub API (curl is BOM-immune)
+          RELEASE_BODY=$(cat "${GITHUB_WORKSPACE}/release-notes.md")
+          VERSION="v${{ steps.version.outputs.new_version }}"
+
+          # Create the release
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: token ${CLEAN_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/Erani0/server-sync/releases" \
+            -d "$(jq -n \
+              --arg tag "$VERSION" \
+              --arg name "$VERSION - Translation Update" \
+              --arg body "$RELEASE_BODY" \
+              '{tag_name: $tag, name: $name, body: $body, draft: false, prerelease: false, make_latest: "true"}')")
+
+          RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
+
+          if [ "$RELEASE_ID" = "null" ] || [ -z "$RELEASE_ID" ]; then
+            echo "::error::Failed to create release: $(echo $RESPONSE | jq -r '.message // "unknown error"')"
+            exit 1
+          fi
+
+          echo "Release created: $VERSION (ID: $RELEASE_ID)"
+
+          # Upload ZIP asset
+          curl -s -X POST \
+            -H "Authorization: token ${CLEAN_TOKEN}" \
+            -H "Content-Type: application/zip" \
+            "https://uploads.github.com/repos/Erani0/server-sync/releases/${RELEASE_ID}/assets?name=server-sync.zip" \
+            --data-binary "@${GITHUB_WORKSPACE}/server-sync.zip"
+
+          echo "Release $VERSION published with server-sync.zip download"
