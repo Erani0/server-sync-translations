@@ -125,29 +125,32 @@ jobs:
 
           # --- Build release notes to file ---
           NOTES_FILE="${GITHUB_WORKSPACE}/release-notes.md"
+          : > "$NOTES_FILE"  # create empty file (no BOM)
           {
             if [ -n "$NEW_LANGS" ]; then
-              echo "### 🆕 New Languages"
+              printf '### New Languages\n'
               for lang in $NEW_LANGS; do
-                echo "- \`${lang}\`"
+                printf -- '- `%s`\n' "$lang"
               done
-              echo ""
+              printf '\n'
             fi
             if [ -n "$UPDATED_LANGS" ]; then
-              echo "### 📝 Updated Languages"
+              printf '### Updated Languages\n'
               for lang in $UPDATED_LANGS; do
-                echo "- \`${lang}\`"
+                printf -- '- `%s`\n' "$lang"
               done
-              echo ""
+              printf '\n'
             fi
 
             TOTAL=$(ls -d ../translations-repo/translations/*/ | xargs -I{} basename {} | grep -v '^en$' | wc -l)
-            echo "### 📊 Total"
-            echo "- **${TOTAL}** community translations available"
-            echo ""
-            echo "### 📦 Installation"
-            echo "Download \`server-sync.zip\` below and extract it into your Pelican Panel \`plugins/\` directory."
-          } > "$NOTES_FILE"
+            printf '### Total\n'
+            printf -- '- **%s** community translations available\n\n' "$TOTAL"
+            printf '### Installation\n'
+            printf -- '- Download `server-sync.zip` below and extract it into your Pelican Panel `plugins/` directory.\n'
+          } >> "$NOTES_FILE"
+
+          # Strip any BOM that might have been added
+          sed -i '1s/^\xEF\xBB\xBF//' "$NOTES_FILE"
 
           echo "notes_file=$NOTES_FILE" >> $GITHUB_OUTPUT
 
