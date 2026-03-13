@@ -154,18 +154,16 @@ jobs:
 
           echo "notes_file=$NOTES_FILE" >> $GITHUB_OUTPUT
 
-      - name: Regenerate .integrity manifest
+      - name: Update integrity checksums in ServiceProvider
         if: steps.changes.outputs.has_changes == 'true'
         run: |
           cd plugin-repo
-          # List of files tracked by IntegrityService
+          # Files checked by the embedded integrity verifier (excludes ServiceProvider itself)
           FILES=(
-            "src/Providers/ServerSyncServiceProvider.php"
             "src/ServerSyncPlugin.php"
             "src/Services/SyncService.php"
             "src/Services/SyncValidator.php"
             "src/Services/ScheduleMirrorService.php"
-            "src/Services/IntegrityService.php"
             "src/Jobs/ExecuteSyncJob.php"
             "src/Models/SyncLog.php"
             "src/Models/SyncPair.php"
@@ -181,18 +179,22 @@ jobs:
             "resources/views/pages/admin-sync-overview.blade.php"
             "resources/views/pages/server-sync.blade.php"
           )
-          echo "{" > .integrity
+          # Build JSON hash map
+          JSON="{"
           FIRST=true
           for f in "${FILES[@]}"; do
             if [ -f "$f" ]; then
               HASH=$(sha256sum "$f" | awk '{print $1}')
-              if [ "$FIRST" = true ]; then FIRST=false; else echo "," >> .integrity; fi
-              printf '  "%s": "%s"' "$f" "$HASH" >> .integrity
+              if [ "$FIRST" = true ]; then FIRST=false; else JSON+=","; fi
+              JSON+="\"$f\":\"$HASH\""
             fi
           done
-          echo "" >> .integrity
-          echo "}" >> .integrity
-          echo "✅ Regenerated .integrity with ${#FILES[@]} files"
+          JSON+="}"
+          # Base64-encode and inject into ServiceProvider
+          B64=$(echo -n "$JSON" | base64 -w 0)
+          sed -i "s|private const _CF = '.*';|private const _CF = '${B64}';|" \
+            src/Providers/ServerSyncServiceProvider.php
+          echo "✅ Embedded integrity checksums (${#FILES[@]} files) into ServiceProvider"
 
       - name: Commit & push to plugin repo
         if: steps.changes.outputs.has_changes == 'true'
@@ -201,8 +203,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Stage lang/, plugin.json, README, and integrity manifest
-          git add lang/ plugin.json README.md .integrity
+          # Stage lang/, plugin.json, README, and ServiceProvider with updated checksums
+          git add lang/ plugin.json README.md src/Providers/ServerSyncServiceProvider.php
 
           # Now check if there are staged changes
           if git diff --cached --quiet; then
