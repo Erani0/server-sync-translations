@@ -225,3 +225,41 @@ jobs:
             --data-binary "@${GITHUB_WORKSPACE}/server-sync.zip"
 
           echo "Release $VERSION published with server-sync.zip download"
+
+      - name: Update update.json with new version
+        if: steps.changes.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_REPO_PAT }}
+        run: |
+          cd plugin-repo
+          CLEAN_TOKEN=$(printf '%s' "$GH_TOKEN" | sed 's/[^a-zA-Z0-9_]//g')
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+
+          # Build new update.json content
+          UPDATE_JSON=$(jq -n \
+            --arg version "$NEW_VERSION" \
+            --arg url "https://github.com/Erani0/server-sync/releases/latest/download/server-sync.zip" \
+            '{"*": {version: $version, download_url: $url}}')
+
+          # Get current SHA of update.json
+          SHA=$(curl -s \
+            -H "Authorization: token ${CLEAN_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/Erani0/server-sync/contents/update.json" \
+            | jq -r '.sha')
+
+          # Base64-encode the content
+          CONTENT_B64=$(echo "$UPDATE_JSON" | base64 -w 0)
+
+          # Update the file via API
+          curl -s -X PUT \
+            -H "Authorization: token ${CLEAN_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/Erani0/server-sync/contents/update.json" \
+            -d "$(jq -n \
+              --arg message "update: bump version to $NEW_VERSION in update.json" \
+              --arg content "$CONTENT_B64" \
+              --arg sha "$SHA" \
+              '{message: $message, content: $content, sha: $sha}')"
+
+          echo "update.json updated to v${NEW_VERSION}"
