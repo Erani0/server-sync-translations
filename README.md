@@ -36,7 +36,7 @@ Community translations for the **Server Sync** plugin for [Pelican Panel](https:
 | 🇹🇷 Turkish | `tr` | ✅ Complete | [@Erani0](https://github.com/Erani0) |
 | 🇺🇦 Ukrainian | `uk` | ❌ Missing | — |
 | 🇻🇳 Vietnamese | `vi` | ❌ Missing | — |
-| 🇨🇳 Chinese (Simplified) | `zh_CN` | ❌ Missing | — |
+| 🇨🇳 Chinese (Simplified) | `zh_CN` | ✅ Complete | [@Erani0](https://github.com/Erani0) |
 | 🇹🇼 Chinese (Traditional) | `zh_TW` | ❌ Missing | — |
 
 ## How to Contribute
