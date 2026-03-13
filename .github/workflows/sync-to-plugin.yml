@@ -154,6 +154,46 @@ jobs:
 
           echo "notes_file=$NOTES_FILE" >> $GITHUB_OUTPUT
 
+      - name: Regenerate .integrity manifest
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          cd plugin-repo
+          # List of files tracked by IntegrityService
+          FILES=(
+            "src/Providers/ServerSyncServiceProvider.php"
+            "src/ServerSyncPlugin.php"
+            "src/Services/SyncService.php"
+            "src/Services/SyncValidator.php"
+            "src/Services/ScheduleMirrorService.php"
+            "src/Services/IntegrityService.php"
+            "src/Jobs/ExecuteSyncJob.php"
+            "src/Models/SyncLog.php"
+            "src/Models/SyncPair.php"
+            "src/Models/SyncSetting.php"
+            "src/Enums/SyncDirection.php"
+            "src/Enums/SyncMode.php"
+            "src/Enums/SyncScope.php"
+            "src/Filament/Admin/Pages/SyncOverview.php"
+            "src/Filament/Server/Pages/ServerSync.php"
+            "src/Tasks/SyncTaskSchema.php"
+            "config/server-sync.php"
+            "database/migrations/2026_03_13_100000_create_server_sync_tables.php"
+            "resources/views/pages/admin-sync-overview.blade.php"
+            "resources/views/pages/server-sync.blade.php"
+          )
+          echo "{" > .integrity
+          FIRST=true
+          for f in "${FILES[@]}"; do
+            if [ -f "$f" ]; then
+              HASH=$(sha256sum "$f" | awk '{print $1}')
+              if [ "$FIRST" = true ]; then FIRST=false; else echo "," >> .integrity; fi
+              printf '  "%s": "%s"' "$f" "$HASH" >> .integrity
+            fi
+          done
+          echo "" >> .integrity
+          echo "}" >> .integrity
+          echo "✅ Regenerated .integrity with ${#FILES[@]} files"
+
       - name: Commit & push to plugin repo
         if: steps.changes.outputs.has_changes == 'true'
         run: |
@@ -161,8 +201,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Stage lang/, plugin.json and README changes
-          git add lang/ plugin.json README.md
+          # Stage lang/, plugin.json, README, and integrity manifest
+          git add lang/ plugin.json README.md .integrity
 
           # Now check if there are staged changes
           if git diff --cached --quiet; then
