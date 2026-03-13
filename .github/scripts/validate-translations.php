@@ -108,7 +108,34 @@ foreach ($languages as $langDir) {
         }
     }
 
-    $langHasErrors = !empty($missing) || !empty($empty) || !empty($placeholderIssues);
+    // Check for English fallback values (untranslated strings identical to English)
+    // Whitelist: keys that are legitimately the same in most languages (technical terms, symbols, etc.)
+    $fallbackWhitelist = [
+        'direction.main_to_sub',     // "Main → Sub" uses arrows
+        'direction.sub_to_main',     // "Sub → Main" uses arrows
+        'form.sync_paths_placeholder',
+        'form.exclude_paths_placeholder',
+    ];
+    $englishFallbacks = [];
+    foreach ($referenceKeys as $key => $refValue) {
+        if (!isset($translationKeys[$key]) || !is_string($refValue) || !is_string($translationKeys[$key])) {
+            continue;
+        }
+        // Skip whitelisted keys
+        if (in_array($key, $fallbackWhitelist, true)) {
+            continue;
+        }
+        // Skip very short values (1-2 chars) or values that are only placeholders/symbols
+        if (mb_strlen(trim($refValue)) <= 2) {
+            continue;
+        }
+        // If the translation is identical to the English value, it's likely untranslated
+        if ($translationKeys[$key] === $refValue) {
+            $englishFallbacks[] = $key;
+        }
+    }
+
+    $langHasErrors = !empty($missing) || !empty($empty) || !empty($placeholderIssues) || !empty($englishFallbacks);
     if ($langHasErrors) {
         $hasErrors = true;
     }
@@ -138,6 +165,16 @@ foreach ($languages as $langDir) {
         echo "   Missing placeholders:\n";
         foreach ($placeholderIssues as $key => $placeholders) {
             echo "     - {$key}: missing " . implode(', ', $placeholders) . "\n";
+        }
+    }
+
+    if (!empty($englishFallbacks)) {
+        echo "   ⚠️  English fallbacks (untranslated — " . count($englishFallbacks) . "):\n";
+        foreach ($englishFallbacks as $key) {
+            $val = mb_strlen($referenceKeys[$key]) > 50
+                ? mb_substr($referenceKeys[$key], 0, 50) . '…'
+                : $referenceKeys[$key];
+            echo "     - {$key}: \"{$val}\"\n";
         }
     }
 
