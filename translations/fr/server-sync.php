@@ -194,7 +194,7 @@ return [
         'mirror_to_partner' => 'Miroir vers le Serveur Partenaire',
         'mirror_description' => 'Créer également cette planification sur le serveur partenaire, afin que les deux serveurs s\'arrêtent, se synchronisent et redémarrent ensemble.',
         'created' => 'Planification de synchronisation créée avec succès.',
-        // 'created_both' => DELIBERATELY MISSING FOR TESTING
+        'created_both' => 'Planification de synchronisation créée sur les deux serveurs.',
     ],
 
     // Navigateur de fichiers
