@@ -1,0 +1,87 @@
+name: Sync translations to plugin repo
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'translations/**'
+
+jobs:
+  sync-to-plugin:
+    name: Sync to server-sync repo
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout translations repo
+        uses: actions/checkout@v4
+        with:
+          path: translations-repo
+
+      - name: Checkout private plugin repo
+        uses: actions/checkout@v4
+        with:
+          repository: Erani0/server-sync
+          token: ${{ secrets.SYNC_REPO_PAT }}
+          path: plugin-repo
+
+      - name: Detect changed translations
+        id: changes
+        run: |
+          cd translations-repo
+          # Get translation files changed in the last commit
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'translations/' | grep 'server-sync.php' || true)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          if [ -z "$CHANGED" ]; then
+            echo "No translation files changed."
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changed files:"
+            echo "$CHANGED"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Copy translations to plugin lang/ folder
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          # Sync ALL translation files (not just changed ones, to be safe)
+          for lang_dir in translations-repo/translations/*/; do
+            lang_code=$(basename "$lang_dir")
+            src="translations-repo/translations/${lang_code}/server-sync.php"
+            dest="plugin-repo/lang/${lang_code}/server-sync.php"
+
+            if [ -f "$src" ]; then
+              mkdir -p "plugin-repo/lang/${lang_code}"
+              cp "$src" "$dest"
+              echo "✅ Synced: ${lang_code}/server-sync.php"
+            fi
+          done
+
+      - name: Commit & push to plugin repo
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          cd plugin-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Check if there are actual changes
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "ℹ️ No changes to commit — plugin repo already up to date."
+            exit 0
+          fi
+
+          # Build commit message with list of synced languages
+          LANGS=""
+          for lang_dir in ../translations-repo/translations/*/; do
+            lang_code=$(basename "$lang_dir")
+            if [ "$lang_code" != "en" ]; then
+              LANGS="${LANGS} ${lang_code}"
+            fi
+          done
+
+          git add lang/
+          git commit -m "lang: sync translations from community repo" -m "Synced languages:${LANGS}"
+          git push
