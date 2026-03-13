@@ -16,11 +16,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed languages
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- 'translations/' | grep -oP 'translations/\K[^/]+' | sort -u | tr '\n' ',' | sed 's/,$//')
+          else
+            CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'translations/' | grep -oP 'translations/\K[^/]+' | sort -u | tr '\n' ',' | sed 's/,$//')
+          fi
+          echo "languages=$CHANGED" >> $GITHUB_OUTPUT
+          echo "Changed languages: $CHANGED"
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
 
-      - name: Validate all translations
-        run: php .github/scripts/validate-translations.php
+      - name: Validate changed translations
+        if: steps.detect.outputs.languages != ''
+        run: php .github/scripts/validate-translations.php "${{ steps.detect.outputs.languages }}"

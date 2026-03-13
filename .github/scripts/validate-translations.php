@@ -53,6 +53,15 @@ $totalKeys = count($referenceKeyList);
 echo "📋 Reference: en/server-sync.php ({$totalKeys} keys)\n";
 echo str_repeat('─', 60) . "\n\n";
 
+// Determine which languages to validate
+// If CLI argument provided (comma-separated), only check those; otherwise check all
+$filterLanguages = [];
+if (!empty($argv[1])) {
+    $filterLanguages = array_map('trim', explode(',', $argv[1]));
+    $filterLanguages = array_filter($filterLanguages, fn($l) => $l !== '' && $l !== 'en');
+    echo "🔍 Validating only: " . implode(', ', $filterLanguages) . "\n\n";
+}
+
 $languages = array_filter(glob($baseDir . '/*'), 'is_dir');
 $hasErrors = false;
 $checkedCount = 0;
@@ -62,6 +71,11 @@ foreach ($languages as $langDir) {
 
     // Skip the reference language
     if ($langCode === 'en') {
+        continue;
+    }
+
+    // If filter is set, only validate the specified languages
+    if (!empty($filterLanguages) && !in_array($langCode, $filterLanguages, true)) {
         continue;
     }
 
