@@ -1,6 +1,6 @@
 # 🌍 Server Sync — Translations
 
-Community translations for the [Server Sync](https://github.com/Erani0/server-sync) plugin for [Pelican Panel](https://pelican.dev).
+Community translations for the **Server Sync** plugin for [Pelican Panel](https://pelican.dev).
 
 ## Available Translations
 
@@ -102,4 +102,4 @@ Every Pull Request is automatically checked by a GitHub Actions workflow that:
 
 ## License
 
-MIT — Translations are contributed under the same license as the [Server Sync](https://github.com/Erani0/server-sync) plugin.
+MIT — Translations are contributed under the same license as the **Server Sync** plugin.
