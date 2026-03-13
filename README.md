@@ -33,7 +33,7 @@ Community translations for the **Server Sync** plugin for [Pelican Panel](https:
 | 🇸🇰 Slovak | `sk` | ❌ Missing | — |
 | 🇷🇸 Serbian | `sr` | ❌ Missing | — |
 | 🇸🇪 Swedish | `sv` | ❌ Missing | — |
-| 🇹🇷 Turkish | `tr` | ❌ Missing | — |
+| 🇹🇷 Turkish | `tr` | ✅ Complete | [@Erani0](https://github.com/Erani0) |
 | 🇺🇦 Ukrainian | `uk` | ❌ Missing | — |
 | 🇻🇳 Vietnamese | `vi` | ❌ Missing | — |
 | 🇨🇳 Chinese (Simplified) | `zh_CN` | ❌ Missing | — |
