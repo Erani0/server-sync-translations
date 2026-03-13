@@ -6,6 +6,8 @@ on:
       - master
     paths:
       - 'translations/**'
+      - '.github/workflows/sync-to-plugin.yml'
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
   sync-to-plugin:
@@ -25,23 +27,39 @@ jobs:
           token: ${{ secrets.SYNC_REPO_PAT }}
           path: plugin-repo
 
-      - name: Detect changed translations
+      - name: Detect changes by comparing repos
         id: changes
         run: |
-          cd translations-repo
-          # Get translation files changed in the last commit
-          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'translations/' | grep 'server-sync.php' || true)
-          echo "files<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGED" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          HAS_CHANGES=false
 
-          if [ -z "$CHANGED" ]; then
-            echo "No translation files changed."
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          else
-            echo "Changed files:"
-            echo "$CHANGED"
+          for lang_dir in translations-repo/translations/*/; do
+            lang_code=$(basename "$lang_dir")
+            src="translations-repo/translations/${lang_code}/server-sync.php"
+            dest="plugin-repo/lang/${lang_code}/server-sync.php"
+
+            if [ ! -f "$src" ]; then
+              continue
+            fi
+
+            # New language not yet in plugin repo
+            if [ ! -f "$dest" ]; then
+              echo "🆕 New language: ${lang_code}"
+              HAS_CHANGES=true
+              continue
+            fi
+
+            # Compare file contents
+            if ! diff -q "$src" "$dest" > /dev/null 2>&1; then
+              echo "📝 Updated: ${lang_code}"
+              HAS_CHANGES=true
+            fi
+          done
+
+          if [ "$HAS_CHANGES" = "true" ]; then
             echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "No translation changes to sync."
+            echo "has_changes=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Copy translations to plugin lang/ folder
