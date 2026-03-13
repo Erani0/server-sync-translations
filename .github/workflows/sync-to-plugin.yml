@@ -124,7 +124,7 @@ jobs:
           echo "all_langs=$ALL_LANGS" >> $GITHUB_OUTPUT
 
           # --- Build release notes to file ---
-          NOTES_FILE=$(mktemp)
+          NOTES_FILE="${GITHUB_WORKSPACE}/release-notes.md"
           {
             if [ -n "$NEW_LANGS" ]; then
               echo "### 🆕 New Languages"
@@ -177,17 +177,17 @@ jobs:
           cd plugin-repo
 
           # Create a clean ZIP of the entire plugin (exclude .git)
-          zip -r ../server-sync.zip . -x ".git/*"
-          echo "✅ Created server-sync.zip ($(du -h ../server-sync.zip | cut -f1))"
+          zip -r "${GITHUB_WORKSPACE}/server-sync.zip" . -x ".git/*"
+          echo "✅ Created server-sync.zip ($(du -h ${GITHUB_WORKSPACE}/server-sync.zip | cut -f1))"
 
       - name: Create GitHub Release with download
         if: steps.changes.outputs.has_changes == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.SYNC_REPO_PAT }}
-        run: |
-          cd plugin-repo
-          gh release create "v${{ steps.version.outputs.new_version }}" \
-            ../server-sync.zip \
-            --title "v${{ steps.version.outputs.new_version }} — Translation Update" \
-            --notes-file "${{ steps.version.outputs.notes_file }}" \
-            --latest
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: Erani0/server-sync
+          token: ${{ secrets.SYNC_REPO_PAT }}
+          tag_name: v${{ steps.version.outputs.new_version }}
+          name: v${{ steps.version.outputs.new_version }} — Translation Update
+          body_path: release-notes.md
+          files: server-sync.zip
+          make_latest: true
