@@ -7,7 +7,7 @@ Community translations for the **Server Sync** plugin for [Pelican Panel](https:
 | Language | Code | Status | Contributor |
 |----------|------|--------|-------------|
 | 🇬🇧 English | `en` | ✅ Complete (official) | [@Erani0](https://github.com/Erani0) |
-| 🇩🇪 German | `de-DE` | ✅ Complete (official) | [@Erani0](https://github.com/Erani0) |
+| 🇩🇪 German | `de` | ✅ Complete (official) | [@Erani0](https://github.com/Erani0) |
 | 🇸🇦 Arabic | `ar` | ❌ Missing | — |
 | 🇧🇾 Belarusian | `be` | ❌ Missing | — |
 | 🇧🇬 Bulgarian | `bg` | ❌ Missing | — |

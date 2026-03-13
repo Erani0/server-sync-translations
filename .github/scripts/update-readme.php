@@ -19,7 +19,7 @@ $refFile  = $baseDir . '/en/server-sync.php';
 // Maps language code → [flag emoji, display name]
 $languageMap = [
     'en'    => ['🇬🇧', 'English'],
-    'de-DE' => ['🇩🇪', 'German'],
+    'de'    => ['🇩🇪', 'German'],
     'ar'    => ['🇸🇦', 'Arabic'],
     'be'    => ['🇧🇾', 'Belarusian'],
     'bg'    => ['🇧🇬', 'Bulgarian'],
@@ -53,7 +53,7 @@ $languageMap = [
 ];
 
 // Official translations maintained by the plugin author
-$officialLanguages = ['en', 'de-DE'];
+$officialLanguages = ['en', 'de'];
 
 // ── Helper functions ─────────────────────────────────────────────────────────
 
